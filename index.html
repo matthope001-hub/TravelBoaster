@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TravelBoast Ontario</title>
+
+    <!-- MapLibre GL JS for reliable map rendering -->
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+
+    <!-- Three.js for 3D vehicle -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0d0f14;
+            --surface: rgba(13,15,20,0.92);
+            --border: rgba(255,255,255,0.07);
+            --accent: #00e5a0;
+            --accent2: #3d7fff;
+            --danger: #ff3b5c;
+            --text: #e8eaf0;
+            --muted: #5a6070;
+            --font: 'Syne', sans-serif;
+            --mono: 'DM Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* ── MAP LAYER ── */
+        #map {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── THREE.JS OVERLAY ── */
+        #three-canvas {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* ── ROUTE LINE ON MAP ── */
+        /* handled by MapLibre layer */
+
+        /* ── UI PANEL ── */
+        #panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 340px;
+            background: var(--surface);
+            backdrop-filter: blur(24px) saturate(1.4);
+            border-right: 1px solid var(--border);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(-100%);
+            transition: transform 0.35s cubic-bezier(0.16,1,0.3,1);
+            overflow: hidden;
+        }
+
+        #panel.open { transform: translateX(0); }
+
+        .panel-header {
+            padding: 28px 24px 20px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .wordmark {
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+        }
+
+        .wordmark span { color: var(--text); }
+
+        .tagline {
+            font-size: 0.72rem;
+            color: var(--muted);
+            font-family: var(--mono);
+            margin-top: 3px;
+            letter-spacing: 0.05em;
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+
+        .section { margin-bottom: 24px; }
+
+        .section-label {
+            font-size: 0.65rem;
+            font-family: var(--mono);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        /* Presets */
+        .preset-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .preset-btn {
+            background: rgba(0,229,160,0.06);
+            border: 1px solid rgba(0,229,160,0.18);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.76rem;
+            font-weight: 600;
+            padding: 9px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: left;
+        }
+        .preset-btn:hover {
+            background: rgba(0,229,160,0.14);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Inputs */
+        .field { margin-bottom: 10px; }
+
+        .field label {
+            display: block;
+            font-size: 0.72rem;
+            font-family: var(--mono);
+            color: var(--muted);
+            margin-bottom: 5px;
+        }
+
+        .field input, .field select {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 0.88rem;
+            outline: none;
+            transition: border-color 0.2s;
+            appearance: none;
+        }
+        .field input:focus, .field select:focus {
+            border-color: var(--accent);
+        }
+        .field select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6070'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 30px;
+            cursor: pointer;
+        }
+        .field select option { background: #1a1d24; }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-family: var(--font);
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.18s;
+            letter-spacing: 0.01em;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #000;
+        }
+        .btn-primary:not(:disabled):hover {
+            background: #00ffb3;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0,229,160,0.35);
+        }
+
+        .btn-play {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+            color: #fff;
+            font-size: 0.95rem;
+        }
+        .btn-play:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(61,127,255,0.35);
+        }
+
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { background: rgba(255,255,255,0.1); }
+
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid rgba(255,59,92,0.3);
+        }
+        .btn-danger:hover {
+            background: rgba(255,59,92,0.1);
+            border-color: var(--danger);
+        }
+
+        .btn-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+
+        /* Route info card */
+        .route-card {
+            display: none;
+            background: rgba(61,127,255,0.07);
+            border: 1px solid rgba(61,127,255,0.2);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin: 12px 0;
+        }
+        .route-card.show { display: block; }
+        .route-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.82rem;
+            padding: 3px 0;
+            color: var(--muted);
+        }
+        .route-row strong {
+            color: var(--accent2);
+            font-weight: 600;
+        }
+
+        /* Route alternatives */
+        .alt-routes { margin: 8px 0; display: none; }
+        .alt-routes.show { display: block; }
+        .alt-btn {
+            width: 100%;
+            text-align: left;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 9px 12px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-family: var(--font);
+            color: var(--muted);
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+        .alt-btn.active {
+            border-color: var(--accent2);
+            background: rgba(61,127,255,0.08);
+            color: var(--text);
+        }
+        .alt-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.06);
+            color: var(--text);
+        }
+        .alt-btn strong { display: block; color: var(--accent2); font-size: 0.85rem; }
+
+        /* Progress */
+        .progress-track {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            width: 0%;
+            transition: width 0.1s linear;
+            border-radius: 2px;
+        }
+
+        /* Speed slider */
+        .speed-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .speed-row input[type=range] {
+            flex: 1;
+            height: 4px;
+            appearance: none;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            cursor: pointer;
+        }
+        .speed-row input[type=range]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+        .speed-label {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--accent);
+            min-width: 32px;
+            text-align: right;
+        }
+
+        /* Vehicle emoji preview */
+        .vehicle-icon {
+            text-align: center;
+            font-size: 2.2rem;
+            padding: 10px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            margin: 8px 0;
+        }
+
+        /* Loading */
+        .loading-row {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-family: var(--mono);
+            color: var(--accent);
+            padding: 8px 0;
+        }
+        .loading-row.show { display: flex; }
+        .spin {
+            width: 14px; height: 14px;
+            border: 2px solid rgba(0,229,160,0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toggle button */
+        #toggle-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            width: 42px; height: 42px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text);
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(16px);
+            transition: left 0.35s cubic-bezier(0.16,1,0.3,1), background 0.15s;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+        }
+        #toggle-btn:hover { background: rgba(0,229,160,0.12); }
+        #toggle-btn.shifted { left: 358px; }
+
+        /* REC indicator */
+        #rec-badge {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 20;
+            background: var(--danger);
+            color: #fff;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 20px;
+            letter-spacing: 0.06em;
+            animation: recpulse 1.4s ease-in-out infinite;
+            box-shadow: 0 4px 20px rgba(255,59,92,0.5);
+        }
+        @keyframes recpulse {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.65; }
+        }
+
+        /* HUD overlay */
+        #hud {
+            display: none;
+            position: absolute;
+            bottom: 28px;
+            right: 24px;
+            z-index: 15;
+            text-align: right;
+        }
+        #hud.show { display: block; }
+
+        .hud-speed {
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1;
+            text-shadow: 0 0 30px rgba(0,229,160,0.5);
+        }
+        .hud-unit {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+        }
+        .hud-city {
+            font-size: 0.85rem;
+            color: var(--text);
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .hud-dist {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+
+        /* Countdown overlay */
+        #countdown {
+            display: none;
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            background: rgba(0,0,0,0.75);
+            align-items: center;
+            justify-content: center;
+        }
+        #countdown.show { display: flex; }
+        .countdown-num {
+            font-size: 10rem;
+            font-weight: 800;
+            color: var(--text);
+            text-shadow: 0 0 60px rgba(0,229,160,0.5);
+            animation: cdbounce 0.4s ease-out;
+        }
+        @keyframes cdbounce {
+            from { transform: scale(1.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Attribution fix */
+        .maplibregl-ctrl-attrib { display: none; }
+        .maplibregl-ctrl-logo { display: none; }
+
+        /* Scrollbar */
+        .panel-body::-webkit-scrollbar { width: 4px; }
+        .panel-body::-webkit-scrollbar-track { background: transparent; }
+        .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+<canvas id="three-canvas"></canvas>
+
+<button id="toggle-btn" onclick="togglePanel()">☰</button>
+
+<div id="panel">
+    <div class="panel-header">
+        <div class="wordmark">Travel<span>Boast</span></div>
+        <div class="tagline">Ontario · 3D Route Animator</div>
+    </div>
+
+    <div class="panel-body">
+
+        <div class="section">
+            <div class="section-label">Quick Routes</div>
+            <div class="preset-grid">
+                <button class="preset-btn" onclick="loadPreset('toronto','hamilton')">Toronto → Hamilton</button>
+                <button class="preset-btn" onclick="loadPreset('toronto','niagara')">Toronto → Niagara</button>
+                <button class="preset-btn" onclick="loadPreset('toronto','london')">Toronto → London ON</button>
+                <button class="preset-btn" onclick="loadPreset('toronto','kingston')">Toronto → Kingston</button>
+                <button class="preset-btn" onclick="loadPreset('mississauga','oakville')">Mississauga → Oakville</button>
+                <button class="preset-btn" onclick="loadPreset('brampton','guelph')">Brampton → Guelph</button>
+                <button class="preset-btn" onclick="loadPreset('toronto','barrie')">Toronto → Barrie</button>
+                <button class="preset-btn" onclick="loadPreset('kitchener','waterloo')">Kitchener → Waterloo</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Custom Route</div>
+            <div class="field">
+                <label>FROM</label>
+                <input type="text" id="from-input" value="Toronto, ON" placeholder="City or address">
+            </div>
+            <div class="field">
+                <label>TO</label>
+                <input type="text" id="to-input" value="Hamilton, ON" placeholder="City or address">
+            </div>
+
+            <div class="loading-row" id="loading-row">
+                <div class="spin"></div>
+                <span id="loading-text">Finding route...</span>
+            </div>
+
+            <button class="btn btn-primary" id="calc-btn" onclick="calcRoute()">Calculate Route</button>
+
+            <div class="route-card" id="route-card">
+                <div class="route-row"><span>Distance</span><strong id="r-dist">—</strong></div>
+                <div class="route-row"><span>Est. time</span><strong id="r-time">—</strong></div>
+                <div class="route-row"><span>Via</span><strong id="r-via">—</strong></div>
+            </div>
+
+            <div class="alt-routes" id="alt-routes">
+                <div class="section-label" style="margin-top:4px">Route Alternatives</div>
+                <div id="alt-list"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Vehicle</div>
+            <div class="field">
+                <select id="vehicle-sel" onchange="changeVehicle()">
+                    <option value="suv">🚙 Honda CR-V (SUV)</option>
+                    <option value="sedan">🚗 Toyota Camry (Sedan)</option>
+                    <option value="truck">🛻 RAM 1500 (Red Pickup)</option>
+                    <option value="sports">🏎️ BMW M4 (Sports)</option>
+                    <option value="van">🚐 Chrysler Pacifica (Minivan)</option>
+                    <option value="tesla">🔋 Tesla Model 3 (EV)</option>
+                    <option value="jeep">🚙 Jeep Wrangler (Lime)</option>
+                    <option value="moto">🏍️ Harley Davidson</option>
+                </select>
+            </div>
+            <div class="vehicle-icon" id="v-icon">🚙</div>
+
+            <div class="field">
+                <label>Camera Mode</label>
+                <select id="cam-sel">
+                    <option value="chase">🎬 Chase View</option>
+                    <option value="cinematic">🎥 Cinematic Orbit</option>
+                    <option value="overhead">🗺️ Overhead</option>
+                    <option value="side">📐 Side Profile</option>
+                    <option value="dash">👤 Dashboard</option>
+                    <option value="hood">🏎️ Hood View</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Speed</label>
+                <div class="speed-row">
+                    <input type="range" id="speed-sl" min="0.1" max="3" step="0.1" value="0.7" oninput="updateSpeed(this)">
+                    <span class="speed-label" id="speed-lbl">0.7×</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Drive</div>
+            <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+            <div class="btn-row">
+                <button class="btn btn-play" id="play-btn" onclick="toggleDrive()">▶ Start Drive</button>
+                <button class="btn btn-ghost" onclick="resetDrive()">↺</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-label">Record</div>
+            <button class="btn btn-danger" id="rec-btn" onclick="toggleRecording()">● Record Video</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+    <div class="hud-speed" id="hud-speed">0</div>
+    <div class="hud-unit">KM/H</div>
+    <div class="hud-city" id="hud-city"></div>
+    <div class="hud-dist" id="hud-dist"></div>
+</div>
+
+<!-- REC badge -->
+<div id="rec-badge">● REC <span id="rec-timer">00:00</span></div>
+
+<!-- Countdown -->
+<div id="countdown">
+    <div class="countdown-num" id="cd-num">3</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// CITY DATABASE
+// ═══════════════════════════════════════════════════
+const CITIES = {
+    toronto:     { lat: 43.6532, lng: -79.3832, name: 'Toronto' },
+    hamilton:    { lat: 43.2557, lng: -79.8711, name: 'Hamilton' },
+    niagara:     { lat: 43.0896, lng: -79.0849, name: 'Niagara Falls' },
+    london:      { lat: 42.9837, lng: -81.2497, name: 'London' },
+    kingston:    { lat: 44.2312, lng: -76.4860, name: 'Kingston' },
+    mississauga: { lat: 43.5890, lng: -79.6441, name: 'Mississauga' },
+    oakville:    { lat: 43.4675, lng: -79.6877, name: 'Oakville' },
+    brampton:    { lat: 43.7315, lng: -79.7624, name: 'Brampton' },
+    guelph:      { lat: 43.5448, lng: -80.2482, name: 'Guelph' },
+    kitchener:   { lat: 43.4516, lng: -80.4925, name: 'Kitchener' },
+    waterloo:    { lat: 43.4643, lng: -80.5204, name: 'Waterloo' },
+    barrie:      { lat: 44.3894, lng: -79.6903, name: 'Barrie' },
+    oshawa:      { lat: 43.8971, lng: -78.8658, name: 'Oshawa' },
+    windsor:     { lat: 42.3149, lng: -83.0364, name: 'Windsor' },
+};
+
+// ═══════════════════════════════════════════════════
+// MAP SETUP (MapLibre GL JS)
+// ═══════════════════════════════════════════════════
+const map = new maplibregl.Map({
+    container: 'map',
+    style: {
+        version: 8,
+        sources: {
+            carto: {
+                type: 'raster',
+                tiles: [
+                    'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+                ],
+                tileSize: 256,
+                attribution: '© CARTO © OpenStreetMap'
+            }
+        },
+        layers: [{
+            id: 'carto-tiles',
+            type: 'raster',
+            source: 'carto',
+            minzoom: 0,
+            maxzoom: 20
+        }]
+    },
+    center: [-79.3832, 43.6532],
+    zoom: 9,
+    interactive: true,
+    attributionControl: false
+});
+
+// Wait for map to load before adding route layers
+map.on('load', () => {
+    // Route line source (will be updated when route is calculated)
+    map.addSource('route', {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+    });
+
+    // Route glow (thick, semi-transparent)
+    map.addLayer({
+        id: 'route-glow',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#3d7fff',
+            'line-width': 12,
+            'line-opacity': 0.25,
+            'line-blur': 4
+        }
+    });
+
+    // Route main line
+    map.addLayer({
+        id: 'route-line',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+            'line-color': '#00e5a0',
+            'line-width': 4,
+            'line-opacity': 0.9
+        }
+    });
+
+    // Alt route sources
+    for (let i = 1; i <= 3; i++) {
+        map.addSource(`route-alt-${i}`, {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } }
+        });
+        map.addLayer({
+            id: `route-alt-line-${i}`,
+            type: 'line',
+            source: `route-alt-${i}`,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+                'line-color': '#3d7fff',
+                'line-width': 3,
+                'line-opacity': 0.4,
+                'line-dasharray': [4, 4]
+            }
+        });
+    }
+
+    // Start/End markers
+    addMarker(CITIES.toronto, '#00e5a0', 'S');
+    addMarker(CITIES.hamilton, '#ff3b5c', 'E');
+
+    // Initial route on load
+    setTimeout(() => loadPreset('toronto', 'hamilton'), 600);
+});
+
+// MapLibre markers for start/end
+let startMarkerEl, endMarkerEl;
+let startMapMarker, endMapMarker;
+
+function addMarker(latlng, color, label) {
+    const el = document.createElement('div');
+    el.style.cssText = `
+        width:28px;height:28px;border-radius:50%;
+        background:${color};color:#000;
+        font-family:'Syne',sans-serif;font-weight:800;font-size:11px;
+        display:flex;align-items:center;justify-content:center;
+        box-shadow:0 0 0 3px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.6);
+        cursor:default;
+    `;
+    el.textContent = label;
+    return el;
+}
+
+function setRouteMarkers(start, end) {
+    if (startMapMarker) startMapMarker.remove();
+    if (endMapMarker) endMapMarker.remove();
+
+    const sEl = addMarker(start, '#00e5a0', 'A');
+    startMapMarker = new maplibregl.Marker({ element: sEl })
+        .setLngLat([start.lng, start.lat])
+        .addTo(map);
+
+    const eEl = addMarker(end, '#ff3b5c', 'B');
+    endMapMarker = new maplibregl.Marker({ element: eEl })
+        .setLngLat([end.lng, end.lat])
+        .addTo(map);
+}
+
+// Vehicle marker on map (moves along route)
+let vehicleMarkerEl = null;
+let vehicleMapMarker = null;
+
+function initVehicleMarker() {
+    if (vehicleMapMarker) vehicleMapMarker.remove();
+    const specs = VEHICLES[currentVehicleType];
+    vehicleMarkerEl = document.createElement('div');
+    vehicleMarkerEl.style.cssText = `
+        font-size:22px;
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,0.8));
+        transform-origin: center;
+        transition: transform 0.1s;
+        line-height:1;
+    `;
+    vehicleMarkerEl.textContent = specs.emoji;
+    vehicleMapMarker = new maplibregl.Marker({
+        element: vehicleMarkerEl,
+        anchor: 'center',
+        rotationAlignment: 'map'
+    }).setLngLat([CITIES.toronto.lng, CITIES.toronto.lat]).addTo(map);
+}
+
+// ═══════════════════════════════════════════════════
+// THREE.JS SETUP (vehicle 3D model overlay)
+// ═══════════════════════════════════════════════════
+const canvas3d = document.getElementById('three-canvas');
+const W = window.innerWidth, H = window.innerHeight;
+canvas3d.width = W; canvas3d.height = H;
+
+const renderer = new THREE.WebGLRenderer({ canvas: canvas3d, alpha: true, antialias: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene3d = new THREE.Scene();
+
+// Lighting
+scene3d.add(new THREE.AmbientLight(0xffffff, 0.7));
+const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+sun.position.set(50, 100, 50);
+sun.castShadow = true;
+scene3d.add(sun);
+const fill = new THREE.DirectionalLight(0x8899ff, 0.3);
+fill.position.set(-50, 30, -50);
+scene3d.add(fill);
+
+// Camera (orthographic-ish perspective for 3D model preview)
+const cam3d = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
+cam3d.position.set(0, 8, 18);
+cam3d.lookAt(0, 2, 0);
+
+// ═══════════════════════════════════════════════════
+// VEHICLE DEFINITIONS & CREATION
+// ═══════════════════════════════════════════════════
+const VEHICLES = {
+    suv:    { emoji: '🚙', l: 4.6, w: 1.85, h: 1.7,  color: 0x2C3E50, type: 'suv' },
+    sedan:  { emoji: '🚗', l: 4.8, w: 1.8,  h: 1.4,  color: 0xC0C0C0, type: 'sedan' },
+    truck:  { emoji: '🛻', l: 5.9, w: 2.0,  h: 1.9,  color: 0xCC0000, type: 'truck' },
+    sports: { emoji: '🏎️', l: 4.5, w: 1.9,  h: 1.3,  color: 0xE74C3C, type: 'sports' },
+    van:    { emoji: '🚐', l: 5.2, w: 2.0,  h: 1.8,  color: 0x9B59B6, type: 'van' },
+    tesla:  { emoji: '🔋', l: 4.7, w: 1.85, h: 1.44, color: 0xffffff, type: 'sedan' },
+    jeep:   { emoji: '🚙', l: 4.8, w: 1.9,  h: 1.9,  color: 0x32CD32, type: 'suv' },
+    moto:   { emoji: '🏍️', l: 2.4, w: 0.9,  h: 1.1,  color: 0xF39C12, type: 'bike' },
+};
+
+let vehicle3d = null, bodyGroup = null;
+let currentVehicleType = 'suv';
+let time3d = 0;
+let dustParticles = [];
+
+function buildMat(color, metalness = 0.6, roughness = 0.3) {
+    return new THREE.MeshStandardMaterial({ color, metalness, roughness });
+}
+
+function addWheels(parent, body, w, h, l, rr = 0.85) {
+    const R = h * rr * 0.5;
+    const tw = w * 0.22;
+    const tireMat = buildMat(0x111111, 0.1, 0.9);
+    const rimMat  = buildMat(0xcccccc, 0.9, 0.1);
+
+    const positions = [
+        [ w * 0.52,  R, l * 0.33],
+        [-w * 0.52,  R, l * 0.33],
+        [ w * 0.52,  R,-l * 0.33],
+        [-w * 0.52,  R,-l * 0.33],
+    ];
+
+    positions.forEach(p => {
+        const wg = new THREE.Group();
+        const tire = new THREE.Mesh(new THREE.CylinderGeometry(R, R, tw, 28), tireMat);
+        tire.rotation.z = Math.PI / 2;
+        wg.add(tire);
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.7, R * 0.7, tw * 0.85, 20), rimMat);
+        rim.rotation.z = Math.PI / 2;
+        wg.add(rim);
+        for (let i = 0; i < 5; i++) {
+            const spoke = new THREE.Mesh(
+                new THREE.BoxGeometry(R * 1.2, tw * 0.45, 0.07),
+                rimMat
+            );
+            spoke.rotation.x = (i / 5) * Math.PI * 2;
+            spoke.rotation.y = Math.PI / 2;
+            wg.add(spoke);
+        }
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.14, R * 0.14, tw * 0.9, 12), rimMat);
+        cap.rotation.z = Math.PI / 2;
+        wg.add(cap);
+        wg.position.set(...p);
+        parent.add(wg);
+    });
+}
+
+function createVehicle3D(type) {
+    if (vehicle3d) scene3d.remove(vehicle3d);
+    dustParticles.forEach(p => scene3d.remove(p));
+    dustParticles = [];
+
+    vehicle3d = new THREE.Group();
+    bodyGroup  = new THREE.Group();
+    vehicle3d.add(bodyGroup);
+    const s = VEHICLES[type];
+
+    const mat    = buildMat(s.color);
+    const glass  = buildMat(0x111122, 0.5, 0.05);
+    const chrome = buildMat(0xcccccc, 0.9, 0.1);
+    const black  = buildMat(0x111111, 0.2, 0.8);
+    const light  = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 });
+
+    if (s.type === 'suv' || s.type === 'sedan') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h * 0.5, s.l), mat);
+        body.position.y = s.h * 0.32; body.castShadow = true; bodyGroup.add(body);
+        const roof = new THREE.Mesh(new THREE.BoxGeometry(s.w * 0.88, s.h * (s.type==='suv'?0.35:0.3), s.l * (s.type==='suv'?0.68:0.58)), mat);
+        roof.position.set(0, s.h * 0.74, -s.l * 0.05); roof.castShadow = true; bodyGroup.add(roof);
+        const win = new THREE.Mesh(new THREE.BoxGeometry(s.w * 0.9, s.h * 0.26, s.l * 0.7), glass);
+        win.position.set(0, s.h * 0.7, -s.l * 0.05); bodyGroup.add(win);
+        const trim = new THREE.Mesh(new THREE.BoxGeometry(s.w * 0.94, 0.07, s.l * 0.72), chrome);
+        trim.position.set(0, s.h * 0.83, -s.l * 0.05); bodyGroup.add(trim);
+        const grille = new THREE.Mesh(new THREE.BoxGeometry(s.w * 0.55, s.h * 0.22, 0.07), black);
+        grille.position.set(0, s.h * 0.4, s.l * 0.49); bodyGroup.add(grille);
+        const bumper = new THREE.Mesh(new THREE.BoxGeometry(s.w * 0.96, 0.09, 0.1), chrome);
+        bumper.position.set(0, s.h * 0.18, s.l * 0.49); bodyGroup.add(bumper);
+        [s.w*0.32, -s.w*0.32].forEach(x => {
+            const hl = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.14, s.h*0.09, 0.06), light);
+            hl.position.set(x, s.h*0.4, s.l*0.49); bodyGroup.add(hl);
+        });
+        if (s.type === 'suv') {
+            const rails = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.72, 0.07, s.l*0.62), chrome);
+            rails.position.set(0, s.h*0.96, -s.l*0.05); bodyGroup.add(rails);
+        }
+        [s.w*0.53, -s.w*0.53].forEach(x => {
+            const mirror = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.18, 0.13), mat);
+            mirror.position.set(x, s.h*0.62, s.l*0.15); bodyGroup.add(mirror);
+        });
+        // Headlights spotlights
+        const sl1 = new THREE.SpotLight(0xffffee, 2, 50, Math.PI/5, 0.4);
+        sl1.position.set(s.w*0.28, s.h*0.55, s.l*0.5);
+        sl1.target.position.set(s.w*0.28, 0, s.l*0.5+30);
+        vehicle3d.add(sl1); vehicle3d.add(sl1.target);
+        addWheels(vehicle3d, bodyGroup, s.w, s.h, s.l);
+    } else if (s.type === 'truck') {
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.98, s.h*0.75, s.l*0.42), mat);
+        cab.position.set(0, s.h*0.48, -s.l*0.26); cab.castShadow = true; bodyGroup.add(cab);
+        const bed = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.96, s.h*0.4, s.l*0.54), mat);
+        bed.position.set(0, s.h*0.35, s.l*0.22); bodyGroup.add(bed);
+        const grille = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.7, s.h*0.35, 0.15), chrome);
+        grille.position.set(0, s.h*0.45, -s.l*0.47); bodyGroup.add(grille);
+        const bumper = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h*0.12, 0.2), chrome);
+        bumper.position.set(0, s.h*0.25, -s.l*0.48); bodyGroup.add(bumper);
+        [s.w*0.35, -s.w*0.35].forEach(x => {
+            const hl = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.18, s.h*0.12, 0.1), light);
+            hl.position.set(x, s.h*0.45, -s.l*0.47); bodyGroup.add(hl);
+        });
+        addWheels(vehicle3d, bodyGroup, s.w, s.h, s.l, 0.9);
+    } else if (s.type === 'sports') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h*0.3, s.l), mat);
+        body.position.y = s.h*0.25; body.castShadow = true; bodyGroup.add(body);
+        const cockpit = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.7, s.h*0.26, s.l*0.38), glass);
+        cockpit.position.set(0, s.h*0.56, -s.l*0.08); bodyGroup.add(cockpit);
+        const spoiler = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.82, 0.08, s.l*0.12), mat);
+        spoiler.position.set(0, s.h*0.82, -s.l*0.43); bodyGroup.add(spoiler);
+        addWheels(vehicle3d, bodyGroup, s.w, s.h, s.l, 0.75);
+    } else if (s.type === 'van') {
+        const body = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h*0.62, s.l), mat);
+        body.position.y = s.h*0.38; body.castShadow = true; bodyGroup.add(body);
+        const win = new THREE.Mesh(new THREE.BoxGeometry(s.w*0.88, s.h*0.25, s.l*0.72), glass);
+        win.position.set(0, s.h*0.65, 0); bodyGroup.add(win);
+        addWheels(vehicle3d, bodyGroup, s.w, s.h, s.l, 0.8);
+    } else if (s.type === 'bike') {
+        const tank = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h*0.35, s.l*0.3), mat);
+        tank.position.set(0, s.h*0.55, s.l*0.1); bodyGroup.add(tank);
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(s.w, s.h*0.15, s.l*0.35), black);
+        seat.position.set(0, s.h*0.5, -s.l*0.2); bodyGroup.add(seat);
+        const R = s.h * 0.45;
+        [s.l*0.38, -s.l*0.38].forEach(z => {
+            const wh = new THREE.Mesh(new THREE.CylinderGeometry(R, R, s.w*0.3, 24), black);
+            wh.rotation.x = Math.PI/2; wh.position.set(0, R, z); vehicle3d.add(wh);
+        });
+    }
+
+    scene3d.add(vehicle3d);
+    currentVehicleType = type;
+}
+
+// ═══════════════════════════════════════════════════
+// ROUTING
+// ═══════════════════════════════════════════════════
+let routeCoords = [];    // [[lng,lat], ...]  for MapLibre
+let routePoints3d = [];  // THREE.Vector3 (normalized around 0,0)
+let routeCurve = null;
+let allRoutes = [];      // multiple alternatives
+let activeRouteIdx = 0;
+let routeStartCoord = null;
+let routeEndCoord = null;
+
+function setLoading(on, text = 'Finding route...') {
+    const row = document.getElementById('loading-row');
+    document.getElementById('loading-text').textContent = text;
+    row.classList.toggle('show', on);
+    document.getElementById('calc-btn').disabled = on;
+}
+
+async function geocode(query) {
+    const q = query.includes('Ontario') || query.includes('ON') ? query : query + ', Ontario, Canada';
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`);
+    const d = await r.json();
+    if (d.length) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon), name: d[0].display_name.split(',')[0] };
+    return null;
+}
+
+function parseCity(input) {
+    const key = input.toLowerCase().trim().replace(/\s*,.*$/, '').replace(/\s+/g, '-');
+    return CITIES[key] || null;
+}
+
+async function resolveLocation(input) {
+    return parseCity(input) || await geocode(input);
+}
+
+async function fetchOSRM(startLoc, endLoc) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${startLoc.lng},${startLoc.lat};${endLoc.lng},${endLoc.lat}?overview=full&geometries=geojson&alternatives=true`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (d.code !== 'Ok') throw new Error(d.message || 'No route');
+    return d.routes;
+}
+
+function buildRouteCurve(coords) {
+    // Normalize coords to 3D world space centered on route midpoint
+    const lats = coords.map(c => c[1]);
+    const lngs = coords.map(c => c[0]);
+    const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+    const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+    const scale = 120; // world units per degree
+
+    const pts = coords.map(c => new THREE.Vector3(
+        (c[0] - midLng) * scale * Math.cos(midLat * Math.PI / 180),
+        0,
+        -(c[1] - midLat) * scale
+    ));
+
+    return {
+        curve: new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.5),
+        points: pts,
+        midLat, midLng, scale
+    };
+}
+
+let routeWorldMid = { midLat: 43.6, midLng: -79.4, scale: 120 };
+
+function applyRoute(idx) {
+    activeRouteIdx = idx;
+    const route = allRoutes[idx];
+    const coords = route.geometry.coordinates;
+
+    // Update MapLibre route line
+    map.getSource('route').setData({
+        type: 'Feature',
+        geometry: { type: 'LineString', coordinates: coords }
+    });
+
+    // Show alt routes
+    allRoutes.forEach((r, i) => {
+        if (i !== idx && i <= 3) {
+            const src = map.getSource(`route-alt-${i}`);
+            if (src) src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: r.geometry.coordinates } });
+        }
+    });
+    // Clear unused alt sources
+    for (let i = 1; i <= 3; i++) {
+        if (!allRoutes[i]) {
+            const src = map.getSource(`route-alt-${i}`);
+            if (src) src.setData({ type: 'Feature', geometry: { type: 'LineString', coordinates: [] } });
+        }
+    }
+
+    // Build 3D curve
+    const built = buildRouteCurve(coords);
+    routeCurve = built.curve;
+    routePoints3d = built.points;
+    routeWorldMid = { midLat: built.midLat, midLng: built.midLng, scale: built.scale };
+    routeCoords = coords;
+
+    // Update info card
+    const dist = (route.distance / 1000).toFixed(1) + ' km';
+    const mins = Math.round(route.duration / 60);
+    const durStr = mins >= 60 ? `${Math.floor(mins/60)}h ${mins%60}m` : `${mins} min`;
+    document.getElementById('r-dist').textContent = dist;
+    document.getElementById('r-time').textContent = durStr;
+    document.getElementById('r-via').textContent = route.legs?.[0]?.summary || 'Highway';
+    document.getElementById('route-card').classList.add('show');
+
+    // Fit map to route
+    const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]));
+    map.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 800 });
+
+    // Alt buttons
+    const altList = document.getElementById('alt-list');
+    altList.innerHTML = '';
+    allRoutes.forEach((r, i) => {
+        const d = (r.distance/1000).toFixed(1);
+        const m = Math.round(r.duration/60);
+        const btn = document.createElement('button');
+        btn.className = 'alt-btn' + (i === idx ? ' active' : '');
+        btn.innerHTML = `<strong>Route ${i+1}${i===0?' · Fastest':''}</strong>${d} km · ${m} min`;
+        btn.onclick = () => { resetDrive(); applyRoute(i); };
+        altList.appendChild(btn);
+    });
+    document.getElementById('alt-routes').classList.toggle('show', allRoutes.length > 1);
+
+    // Place vehicle at start
+    resetDrive();
+    initVehicleMarker();
+    if (vehicleMapMarker) vehicleMapMarker.setLngLat(coords[0]);
+}
+
+async function calcRoute() {
+    setLoading(true, 'Resolving locations...');
+    try {
+        const fromStr = document.getElementById('from-input').value;
+        const toStr   = document.getElementById('to-input').value;
+
+        const [start, end] = await Promise.all([resolveLocation(fromStr), resolveLocation(toStr)]);
+        if (!start) throw new Error('Could not find: ' + fromStr);
+        if (!end)   throw new Error('Could not find: ' + toStr);
+
+        routeStartCoord = start;
+        routeEndCoord = end;
+
+        setLoading(true, 'Calculating route...');
+        const routes = await fetchOSRM(start, end);
+        allRoutes = routes;
+
+        setRouteMarkers(start, end);
+        applyRoute(0);
+
+    } catch(err) {
+        console.error(err);
+        // Fallback: straight line between cities
+        if (routeStartCoord && routeEndCoord) {
+            allRoutes = [makeFallbackRoute(routeStartCoord, routeEndCoord)];
+            applyRoute(0);
+        } else {
+            alert('Could not calculate route: ' + err.message);
+        }
+    } finally {
+        setLoading(false);
+    }
+}
+
+function makeFallbackRoute(start, end) {
+    const coords = [];
+    for (let i = 0; i <= 20; i++) {
+        const t = i / 20;
+        coords.push([
+            start.lng + (end.lng - start.lng) * t,
+            start.lat + (end.lat - start.lat) * t
+        ]);
+    }
+    const dist = Math.sqrt(Math.pow((end.lat-start.lat)*111, 2) + Math.pow((end.lng-start.lng)*85, 2));
+    return {
+        geometry: { type: 'LineString', coordinates: coords },
+        distance: dist * 1000,
+        duration: (dist / 90) * 3600,
+        legs: [{ summary: 'Direct' }]
+    };
+}
+
+function loadPreset(fromKey, toKey) {
+    const from = CITIES[fromKey], to = CITIES[toKey];
+    if (!from || !to) return;
+    document.getElementById('from-input').value = from.name;
+    document.getElementById('to-input').value = to.name;
+    routeStartCoord = from;
+    routeEndCoord = to;
+    calcRoute();
+}
+
+// ═══════════════════════════════════════════════════
+// DRIVE ANIMATION
+// ═══════════════════════════════════════════════════
+let isDriving = false;
+let driveProgress = 0;
+let animId = null;
+let simSpeed = 0;  // simulated km/h for HUD
+
+function toggleDrive() {
+    if (driveProgress >= 1) driveProgress = 0;
+    isDriving = !isDriving;
+    document.getElementById('play-btn').textContent = isDriving ? '⏸ Pause' : '▶ Start Drive';
+    document.getElementById('hud').classList.toggle('show', isDriving);
+    if (isDriving && panelOpen) togglePanel();
+}
+
+function resetDrive() {
+    isDriving = false;
+    driveProgress = 0;
+    document.getElementById('play-btn').textContent = '▶ Start Drive';
+    document.getElementById('prog-fill').style.width = '0%';
+    document.getElementById('hud').classList.remove('show');
+    if (routeCoords.length && vehicleMapMarker) {
+        vehicleMapMarker.setLngLat(routeCoords[0]);
+    }
+    if (routePoints3d.length && vehicle3d) {
+        vehicle3d.position.copy(routePoints3d[0]);
+    }
+}
+
+let prevProgress = 0;
+let lastFrameTime = 0;
+
+function driveLoop(ts) {
+    animId = requestAnimationFrame(driveLoop);
+    const dt = Math.min((ts - lastFrameTime) / 1000, 0.05);
+    lastFrameTime = ts;
+    time3d += dt;
+
+    if (isDriving && routeCurve && routeCoords.length) {
+        const speed = parseFloat(document.getElementById('speed-sl').value);
+        driveProgress += dt * 0.012 * speed;
+        if (driveProgress >= 1) {
+            driveProgress = 1;
+            isDriving = false;
+            document.getElementById('play-btn').textContent = '▶ Start Drive';
+        }
+
+        const p = Math.max(0, Math.min(driveProgress, 0.9999));
+
+        // Update 3D vehicle position
+        const pos3d = routeCurve.getPoint(p);
+        const tan3d = routeCurve.getTangent(p);
+
+        const bumpAmp = 0.06 * speed;
+        const bump = Math.sin(time3d * 22 * speed) * bumpAmp + Math.sin(time3d * 37 * speed) * bumpAmp * 0.4;
+
+        vehicle3d.position.set(pos3d.x, bump, pos3d.z);
+        vehicle3d.lookAt(pos3d.x + tan3d.x, pos3d.y, pos3d.z + tan3d.z);
+
+        // Suspension on body group
+        if (bodyGroup) {
+            bodyGroup.position.y = Math.sin(time3d * 15 * speed) * 0.08 * speed;
+            bodyGroup.rotation.x = Math.sin(time3d * 10 * speed) * 0.015 * speed;
+        }
+
+        // Dust
+        if (Math.random() < 0.25 * speed) {
+            spawnDust(pos3d, tan3d);
+        }
+
+        // Update MapLibre vehicle marker position
+        const coordIdx = Math.floor(p * (routeCoords.length - 1));
+        const nextIdx  = Math.min(coordIdx + 1, routeCoords.length - 1);
+        const localT   = (p * (routeCoords.length - 1)) - coordIdx;
+        const interpLng = routeCoords[coordIdx][0] + (routeCoords[nextIdx][0] - routeCoords[coordIdx][0]) * localT;
+        const interpLat = routeCoords[coordIdx][1] + (routeCoords[nextIdx][1] - routeCoords[coordIdx][1]) * localT;
+
+        if (vehicleMapMarker) vehicleMapMarker.setLngLat([interpLng, interpLat]);
+
+        // Follow camera on map
+        map.easeTo({ center: [interpLng, interpLat], duration: 100, easing: t => t });
+
+        // HUD
+        const dpDelta = Math.abs(driveProgress - prevProgress);
+        const routeLenM = allRoutes[activeRouteIdx]?.distance || 0;
+        simSpeed = Math.round(dpDelta / dt * routeLenM * 3.6 * 0.012 * speed * 2.2);
+        simSpeed = Math.min(simSpeed, 140);
+        document.getElementById('hud-speed').textContent = simSpeed || Math.round(80 * speed);
+        const remaining = ((1 - driveProgress) * routeLenM / 1000).toFixed(1);
+        document.getElementById('hud-dist').textContent = remaining + ' km remaining';
+        prevProgress = driveProgress;
+
+        document.getElementById('prog-fill').style.width = (driveProgress * 100) + '%';
+
+        // Camera for 3D model
+        update3DCamera(pos3d, tan3d, speed);
+    }
+
+    updateDust(dt);
+    renderer.render(scene3d, cam3d);
+}
+
+function update3DCamera(pos, tan, speed) {
+    const mode = document.getElementById('cam-sel').value;
+    let target, lookAt;
+
+    switch(mode) {
+        case 'chase':
+            target = new THREE.Vector3(pos.x - tan.x * 14, 7 + speed * 1.5, pos.z - tan.z * 14);
+            lookAt  = new THREE.Vector3(pos.x + tan.x * 10, 0, pos.z + tan.z * 10);
+            break;
+        case 'overhead':
+            target = new THREE.Vector3(pos.x, 22, pos.z);
+            lookAt  = pos.clone();
+            break;
+        case 'side':
+            const sv = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+            target = pos.clone().add(sv.multiplyScalar(14)).add(new THREE.Vector3(0, 6, 0));
+            lookAt  = pos.clone();
+            break;
+        case 'dash':
+            target = new THREE.Vector3(pos.x + tan.x * 1.5, pos.y + 1.8, pos.z + tan.z * 1.5);
+            lookAt  = new THREE.Vector3(pos.x + tan.x * 30, 0, pos.z + tan.z * 30);
+            break;
+        case 'hood':
+            target = new THREE.Vector3(pos.x + tan.x * 3, pos.y + 1.2, pos.z + tan.z * 3);
+            lookAt  = new THREE.Vector3(pos.x + tan.x * 50, 0, pos.z + tan.z * 50);
+            break;
+        case 'cinematic':
+            const a = time3d * 0.4;
+            target = new THREE.Vector3(pos.x + Math.sin(a)*18, 10, pos.z + Math.cos(a)*18);
+            lookAt  = pos.clone();
+            break;
+        default:
+            target = new THREE.Vector3(pos.x - tan.x*14, 7, pos.z - tan.z*14);
+            lookAt  = pos.clone();
+    }
+
+    cam3d.position.lerp(target, 0.06);
+    const curLook = new THREE.Vector3();
+    cam3d.getWorldDirection(curLook);
+    const desiredDir = lookAt.clone().sub(cam3d.position).normalize();
+    const blended = curLook.lerp(desiredDir, 0.08).normalize();
+    cam3d.lookAt(cam3d.position.clone().add(blended));
+}
+
+// Dust
+function spawnDust(pos, tan) {
+    const geo = new THREE.SphereGeometry(0.18, 4, 4);
+    const mat = new THREE.MeshBasicMaterial({ color: 0x888888, transparent: true, opacity: 0.5 });
+    const p = new THREE.Mesh(geo, mat);
+    const offset = new THREE.Vector3(-tan.z, 0, tan.x).normalize().multiplyScalar((Math.random()-0.5)*1.5);
+    p.position.set(pos.x + offset.x - tan.x * 2, 0.3 + Math.random()*0.4, pos.z + offset.z - tan.z * 2);
+    p.userData = { life: 1, decay: 0.025 + Math.random()*0.02, vy: 0.03 + Math.random()*0.04 };
+    scene3d.add(p);
+    dustParticles.push(p);
+}
+
+function updateDust(dt) {
+    for (let i = dustParticles.length - 1; i >= 0; i--) {
+        const p = dustParticles[i];
+        p.userData.life -= p.userData.decay;
+        p.position.y += p.userData.vy;
+        p.material.opacity = p.userData.life * 0.5;
+        p.scale.setScalar(1 + (1 - p.userData.life) * 1.5);
+        if (p.userData.life <= 0) { scene3d.remove(p); dustParticles.splice(i, 1); }
+    }
+}
+
+// ═══════════════════════════════════════════════════
+// RECORDING
+// ═══════════════════════════════════════════════════
+let isRecording = false;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recInterval = null;
+
+async function toggleRecording() {
+    isRecording ? stopRecording() : startRecording();
+}
+
+async function startRecording() {
+    // Countdown
+    const cd = document.getElementById('countdown');
+    const num = document.getElementById('cd-num');
+    cd.classList.add('show');
+    for (let i = 3; i >= 1; i--) {
+        num.textContent = i;
+        num.style.animation = 'none';
+        void num.offsetWidth;
+        num.style.animation = 'cdbounce 0.4s ease-out';
+        await sleep(900);
+    }
+    num.textContent = 'GO!';
+    await sleep(500);
+    cd.classList.remove('show');
+
+    // Hide panel
+    if (panelOpen) togglePanel();
+
+    const mapCanvas = document.querySelector('.maplibregl-canvas');
+    const stream = mapCanvas.captureStream(60);
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = downloadRecording;
+    mediaRecorder.start(100);
+
+    isRecording = true;
+    document.getElementById('rec-badge').style.display = 'block';
+    document.getElementById('rec-btn').textContent = '■ Stop Recording';
+
+    let secs = 0;
+    recInterval = setInterval(() => {
+        secs++;
+        const mm = String(Math.floor(secs/60)).padStart(2,'0');
+        const ss = String(secs%60).padStart(2,'0');
+        document.getElementById('rec-timer').textContent = `${mm}:${ss}`;
+    }, 1000);
+
+    if (!isDriving) { driveProgress = 0; toggleDrive(); }
+}
+
+function stopRecording() {
+    if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
+    clearInterval(recInterval);
+    isRecording = false;
+    document.getElementById('rec-badge').style.display = 'none';
+    document.getElementById('rec-btn').textContent = '● Record Video';
+}
+
+function downloadRecording() {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `travelboast-ontario-${Date.now()}.webm`;
+    a.click();
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══════════════════════════════════════════════════
+// UI CONTROLS
+// ═══════════════════════════════════════════════════
+let panelOpen = false;
+
+function togglePanel() {
+    panelOpen = !panelOpen;
+    document.getElementById('panel').classList.toggle('open', panelOpen);
+    const btn = document.getElementById('toggle-btn');
+    btn.classList.toggle('shifted', panelOpen);
+    btn.textContent = panelOpen ? '✕' : '☰';
+}
+
+function updateSpeed(el) {
+    document.getElementById('speed-lbl').textContent = parseFloat(el.value).toFixed(1) + '×';
+}
+
+function changeVehicle() {
+    const type = document.getElementById('vehicle-sel').value;
+    document.getElementById('v-icon').textContent = VEHICLES[type].emoji;
+    buildVehicle(type);
+}
+
+function buildVehicle(type) {
+    createVehicle3D(type);
+    if (routePoints3d.length && vehicle3d) {
+        vehicle3d.position.copy(routePoints3d[0]);
+    }
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { if (!panelOpen) togglePanel(); }
+    if (e.key === ' ') { e.preventDefault(); toggleDrive(); }
+});
+
+window.addEventListener('resize', () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    canvas3d.width = w; canvas3d.height = h;
+    renderer.setSize(w, h);
+    cam3d.aspect = w / h;
+    cam3d.updateProjectionMatrix();
+});
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+createVehicle3D('suv');
+requestAnimationFrame(t => { lastFrameTime = t; driveLoop(t); });
+setTimeout(() => togglePanel(), 400);
+</script>
+</body>
+</html>
