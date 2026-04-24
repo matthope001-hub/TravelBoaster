@@ -158,7 +158,7 @@
         }
         .vehicle-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
         .vehicle-card.active { border-color: #00e676; background: rgba(0,230,118,0.1); }
-        .vehicle-card svg { width: 38px; height: 26px; display: block; }
+        .vehicle-card svg { width: 28px; height: 40px; display: block; }
         .vehicle-card .vname { font-size: 0.58rem; color: #777; line-height: 1.2; }
         .vehicle-card.active .vname { color: #00e676; }
 
@@ -236,9 +236,10 @@
             <div class="control-group">
                 <label>Camera</label>
                 <select id="camera-mode">
+                    <option value="map" selected>Map View</option>
                     <option value="chase">Chase Cam</option>
                     <option value="cinematic">Cinematic Orbit</option>
-                    <option value="overhead">Overhead</option>
+                    <option value="overhead">Overhead Follow</option>
                     <option value="side">Side Profile</option>
                     <option value="dashboard">Dashboard</option>
                     <option value="hood">Hood Cam</option>
@@ -270,16 +271,143 @@
 </div>
 
 <script>
-// ─── SVG VEHICLE ICONS ────────────────────────────────────────────────────────
+// ─── SVG VEHICLE ICONS — all top-down (bird's eye) ───────────────────────────
 const VEHICLE_SVGS = {
-    sedan:`<svg viewBox="0 0 60 34" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="17" width="52" height="12" rx="3" fill="#B0B0B0"/><path d="M12 17 L18 8 L42 8 L50 17Z" fill="#989898"/><rect x="19" y="9" width="22" height="7" rx="1" fill="#0d1825" opacity="0.85"/><circle cx="14" cy="29" r="4.5" fill="#111"/><circle cx="14" cy="29" r="2" fill="#888"/><circle cx="46" cy="29" r="4.5" fill="#111"/><circle cx="46" cy="29" r="2" fill="#888"/><rect x="2" y="21" width="4" height="3" rx="1" fill="#fff" opacity="0.85"/><rect x="54" y="21" width="4" height="3" rx="1" fill="#f00" opacity="0.7"/></svg>`,
-    suv:`<svg viewBox="0 0 60 34" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="14" width="54" height="14" rx="3" fill="#1e2d3d"/><rect x="7" y="6" width="42" height="10" rx="2" fill="#1a2836"/><rect x="9" y="7" width="18" height="7" rx="1" fill="#0d1825" opacity="0.9"/><rect x="29" y="7" width="18" height="7" rx="1" fill="#0d1825" opacity="0.85"/><rect x="7" y="6" width="42" height="2" rx="1" fill="#3a5060"/><circle cx="13" cy="28" r="5" fill="#111"/><circle cx="13" cy="28" r="2.2" fill="#999"/><circle cx="47" cy="28" r="5" fill="#111"/><circle cx="47" cy="28" r="2.2" fill="#999"/><rect x="1" y="18" width="4" height="4" rx="1" fill="#fff" opacity="0.85"/><rect x="55" y="18" width="4" height="4" rx="1" fill="#f00" opacity="0.7"/></svg>`,
-    truck:`<svg viewBox="0 0 70 34" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="30" y="13" width="36" height="15" rx="2" fill="#AA2000"/><rect x="3" y="18" width="28" height="11" rx="2" fill="#992000"/><rect x="32" y="6" width="32" height="9" rx="2" fill="#BB2200"/><rect x="33" y="7" width="14" height="7" rx="1" fill="#0d1825" opacity="0.85"/><rect x="48" y="7" width="14" height="7" rx="1" fill="#0d1825" opacity="0.85"/><rect x="63" y="18" width="4" height="4" rx="1" fill="#fff" opacity="0.9"/><circle cx="13" cy="29" r="5" fill="#111"/><circle cx="13" cy="29" r="2.2" fill="#888"/><circle cx="57" cy="29" r="5" fill="#111"/><circle cx="57" cy="29" r="2.2" fill="#888"/></svg>`,
-    sports:`<svg viewBox="0 0 60 30" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 22 L10 11 L22 7 L38 7 L52 13 L58 22Z" fill="#CC2200"/><path d="M18 8 L22 13 L38 13 L42 8Z" fill="#0d1825" opacity="0.85"/><rect x="4" y="22" width="52" height="5" rx="2" fill="#AA1A00"/><rect x="42" y="21" width="4" height="3" rx="1" fill="#111"/><circle cx="14" cy="27" r="4" fill="#111"/><circle cx="14" cy="27" r="1.8" fill="#888"/><circle cx="46" cy="27" r="4" fill="#111"/><circle cx="46" cy="27" r="1.8" fill="#888"/><rect x="2" y="20" width="4" height="3" rx="1" fill="#fff" opacity="0.8"/></svg>`,
-    van:`<svg viewBox="0 0 64 34" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="9" width="58" height="19" rx="3" fill="#6C2E9C"/><rect x="4" y="10" width="18" height="12" rx="1" fill="#0d1825" opacity="0.85"/><rect x="24" y="10" width="11" height="12" rx="1" fill="#0d1825" opacity="0.8"/><rect x="37" y="10" width="11" height="12" rx="1" fill="#0d1825" opacity="0.8"/><rect x="2" y="9" width="8" height="19" rx="2 0 0 2" fill="#5C2480"/><rect x="1" y="14" width="4" height="4" rx="1" fill="#fff" opacity="0.9"/><rect x="59" y="14" width="4" height="4" rx="1" fill="#f00" opacity="0.7"/><circle cx="13" cy="29" r="4.5" fill="#111"/><circle cx="13" cy="29" r="2" fill="#999"/><circle cx="51" cy="29" r="4.5" fill="#111"/><circle cx="51" cy="29" r="2" fill="#999"/></svg>`,
-    tesla:`<svg viewBox="0 0 60 34" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="18" width="52" height="11" rx="4" fill="#EEEEEE"/><path d="M14 18 L20 9 L40 9 L46 18Z" fill="#E0E0E0"/><rect x="20" y="10" width="20" height="7" rx="1" fill="#0d1825" opacity="0.8"/><rect x="4" y="20" width="52" height="1.5" fill="#CCC"/><circle cx="14" cy="29" r="4.5" fill="#111"/><circle cx="14" cy="29" r="2" fill="#aaa"/><circle cx="46" cy="29" r="4.5" fill="#111"/><circle cx="46" cy="29" r="2" fill="#aaa"/><rect x="2" y="21" width="4" height="3" rx="1" fill="#fff" opacity="0.9"/><path d="M28 14 L30 10 L32 14 L31 14 L31 17 L29 17 L29 14Z" fill="#CC0000"/></svg>`,
-    jeep:`<svg viewBox="0 0 58 36" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2" y="13" width="54" height="15" rx="2" fill="#27AE36"/><rect x="5" y="5" width="44" height="10" rx="2" fill="#2ECC40"/><rect x="7" y="6" width="19" height="8" rx="1" fill="#0d1825" opacity="0.85"/><rect x="28" y="6" width="19" height="8" rx="1" fill="#0d1825" opacity="0.85"/><rect x="2" y="13" width="54" height="3" fill="#229933"/><circle cx="11" cy="30" r="5.5" fill="#111"/><circle cx="11" cy="30" r="2.5" fill="#777"/><circle cx="47" cy="30" r="5.5" fill="#111"/><circle cx="47" cy="30" r="2.5" fill="#777"/><rect x="1" y="16" width="4" height="5" rx="1" fill="#fff" opacity="0.9"/><rect x="53" y="16" width="4" height="5" rx="1" fill="#f00" opacity="0.7"/></svg>`,
-    motorcycle:`<svg viewBox="0 0 50 34" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="24" r="9" fill="#111"/><circle cx="10" cy="24" r="5" fill="#555"/><circle cx="10" cy="24" r="2" fill="#999"/><circle cx="40" cy="24" r="9" fill="#111"/><circle cx="40" cy="24" r="5" fill="#555"/><circle cx="40" cy="24" r="2" fill="#999"/><path d="M10 16 L18 11 L32 11 L40 16 L32 20 L18 20Z" fill="#D07000"/><rect x="18" y="9" width="14" height="4" rx="2" fill="#333"/><path d="M8 16 L10 16 L12 11" stroke="#777" stroke-width="1.5" fill="none"/><ellipse cx="25" cy="12" rx="8" ry="2.5" fill="#C06000" opacity="0.8"/><rect x="20" y="7" width="10" height="3" rx="1" fill="#444"/></svg>`
+    // Sedan — sleek tapered oval, front narrower
+    sedan:`<svg viewBox="0 0 38 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="8" width="28" height="56" rx="12" fill="#B8B8B8"/>
+      <rect x="8" y="12" width="22" height="16" rx="4" fill="#0d1825" opacity="0.82"/>
+      <rect x="8" y="44" width="22" height="10" rx="3" fill="#0d1825" opacity="0.6"/>
+      <rect x="7" y="30" width="24" height="14" rx="2" fill="#C8C8C8"/>
+      <rect x="3" y="18" width="5" height="10" rx="2.5" fill="#111"/>
+      <rect x="30" y="18" width="5" height="10" rx="2.5" fill="#111"/>
+      <rect x="3" y="46" width="5" height="10" rx="2.5" fill="#111"/>
+      <rect x="30" y="46" width="5" height="10" rx="2.5" fill="#111"/>
+      <rect x="9" y="7" width="5" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="24" y="7" width="5" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="10" y="61" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="24" y="61" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+    </svg>`,
+    // SUV — wider, boxier, roof rails
+    suv:`<svg viewBox="0 0 42 76" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="8" width="34" height="60" rx="7" fill="#1B2A3A"/>
+      <rect x="7" y="12" width="28" height="18" rx="3" fill="#0d1825" opacity="0.88"/>
+      <rect x="7" y="48" width="28" height="12" rx="2" fill="#0d1825" opacity="0.65"/>
+      <rect x="9" y="32" width="24" height="16" rx="2" fill="#243545"/>
+      <line x1="10" y1="36" x2="32" y2="36" stroke="#3a5060" stroke-width="1.2"/>
+      <line x1="10" y1="42" x2="32" y2="42" stroke="#3a5060" stroke-width="1.2"/>
+      <rect x="2" y="18" width="5" height="12" rx="2.5" fill="#111"/>
+      <rect x="35" y="18" width="5" height="12" rx="2.5" fill="#111"/>
+      <rect x="2" y="48" width="5" height="12" rx="2.5" fill="#111"/>
+      <rect x="35" y="48" width="5" height="12" rx="2.5" fill="#111"/>
+      <rect x="8" y="7" width="6" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="28" y="7" width="6" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="9" y="65" width="5" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="28" y="65" width="5" height="3" rx="1" fill="#f00" opacity="0.8"/>
+    </svg>`,
+    // Truck — long bed at rear, cab at front
+    truck:`<svg viewBox="0 0 44 88" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="6" width="36" height="36" rx="6" fill="#BB2200"/>
+      <rect x="7" y="10" width="30" height="20" rx="3" fill="#0d1825" opacity="0.85"/>
+      <rect x="4" y="44" width="36" height="38" rx="4" fill="#AA1E00"/>
+      <rect x="6" y="46" width="32" height="34" rx="3" fill="#991a00" opacity="0.5"/>
+      <rect x="2" y="14" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="37" y="14" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="2" y="56" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="37" y="56" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="8" y="5" width="7" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="29" y="5" width="7" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="10" y="79" width="5" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="29" y="79" width="5" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="8" y="44" width="28" height="2" fill="#cc3300" opacity="0.6"/>
+    </svg>`,
+    // Sports — very narrow, long, pointy nose
+    sports:`<svg viewBox="0 0 34 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M17 4 L30 16 L32 62 L17 68 L2 62 L4 16 Z" fill="#CC2200"/>
+      <rect x="8" y="14" width="18" height="14" rx="2" fill="#0d1825" opacity="0.88"/>
+      <rect x="8" y="46" width="18" height="10" rx="2" fill="#0d1825" opacity="0.6"/>
+      <rect x="9" y="30" width="16" height="16" rx="2" fill="#BB1E00"/>
+      <rect x="2" y="18" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="28" y="18" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="2" y="46" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="28" y="46" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="8" y="6" width="5" height="3" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="21" y="6" width="5" height="3" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="9" y="63" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="21" y="63" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="12" y="58" width="10" height="6" rx="1" fill="#991800"/>
+    </svg>`,
+    // Van — very wide, very boxy, sliding door line
+    van:`<svg viewBox="0 0 48 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="6" width="42" height="66" rx="5" fill="#6C2E9C"/>
+      <rect x="6" y="10" width="36" height="20" rx="3" fill="#0d1825" opacity="0.85"/>
+      <rect x="6" y="54" width="36" height="12" rx="2" fill="#0d1825" opacity="0.6"/>
+      <rect x="7" y="32" width="34" height="22" rx="2" fill="#7D3C9C"/>
+      <line x1="7" y1="42" x2="41" y2="42" stroke="#5C2480" stroke-width="1.5"/>
+      <line x1="30" y1="32" x2="30" y2="54" stroke="#5C2480" stroke-width="1.5"/>
+      <rect x="1" y="18" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="42" y="18" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="1" y="50" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="42" y="50" width="5" height="14" rx="2.5" fill="#111"/>
+      <rect x="9" y="5" width="8" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="31" y="5" width="8" height="4" rx="1" fill="#fff" opacity="0.9"/>
+      <rect x="11" y="68" width="6" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="31" y="68" width="6" height="3" rx="1" fill="#f00" opacity="0.8"/>
+    </svg>`,
+    // Tesla — smooth, panoramic roof, no grille
+    tesla:`<svg viewBox="0 0 38 74" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="8" width="30" height="58" rx="13" fill="#EEEEEE"/>
+      <rect x="7" y="13" width="24" height="16" rx="4" fill="#0d1825" opacity="0.75"/>
+      <rect x="6" y="45" width="26" height="10" rx="3" fill="#0d1825" opacity="0.55"/>
+      <rect x="7" y="31" width="24" height="14" rx="2" fill="#E0E0E0"/>
+      <rect x="3" y="20" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="31" y="20" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="3" y="46" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="31" y="46" width="4" height="10" rx="2" fill="#111"/>
+      <rect x="10" y="8" width="4" height="3" rx="1" fill="#fff" opacity="0.7"/>
+      <rect x="24" y="8" width="4" height="3" rx="1" fill="#fff" opacity="0.7"/>
+      <rect x="11" y="63" width="4" height="3" rx="1" fill="#f00" opacity="0.7"/>
+      <rect x="23" y="63" width="4" height="3" rx="1" fill="#f00" opacity="0.7"/>
+      <path d="M17 11 L19 7 L21 11 L20 11 L20 14 L18 14 L18 11Z" fill="#CC0000" opacity="0.85"/>
+    </svg>`,
+    // Jeep Wrangler — squarish, fat tyres, spare on back, roof rack crossbars, round headlights
+    jeep:`<svg viewBox="0 0 44 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="8" width="34" height="58" rx="5" fill="#27AE36"/>
+      <rect x="8" y="12" width="28" height="20" rx="3" fill="#0d1825" opacity="0.88"/>
+      <rect x="8" y="50" width="28" height="10" rx="2" fill="#0d1825" opacity="0.65"/>
+      <rect x="9" y="34" width="26" height="16" rx="2" fill="#2ECC40"/>
+      <line x1="9" y1="38" x2="35" y2="38" stroke="#229933" stroke-width="1.5"/>
+      <line x1="9" y1="44" x2="35" y2="44" stroke="#229933" stroke-width="1.5"/>
+      <rect x="7" y="8" width="30" height="3" rx="1.5" fill="#999"/>
+      <line x1="14" y1="8" x2="14" y2="11" stroke="#777" stroke-width="1"/>
+      <line x1="22" y1="8" x2="22" y2="11" stroke="#777" stroke-width="1"/>
+      <line x1="30" y1="8" x2="30" y2="11" stroke="#777" stroke-width="1"/>
+      <rect x="1" y="16" width="6" height="14" rx="3" fill="#111"/>
+      <rect x="37" y="16" width="6" height="14" rx="3" fill="#111"/>
+      <rect x="1" y="46" width="6" height="14" rx="3" fill="#111"/>
+      <rect x="37" y="46" width="6" height="14" rx="3" fill="#111"/>
+      <rect x="3" y="18" width="4" height="10" rx="2" fill="#333" opacity="0.6"/>
+      <rect x="37" y="18" width="4" height="10" rx="2" fill="#333" opacity="0.6"/>
+      <circle cx="11" cy="15" r="3" fill="#fff" opacity="0.9"/>
+      <circle cx="33" cy="15" r="3" fill="#fff" opacity="0.9"/>
+      <circle cx="22" cy="72" r="6" fill="#1a1a1a"/>
+      <circle cx="22" cy="72" r="3" fill="#444"/>
+      <circle cx="22" cy="72" r="1.2" fill="#888"/>
+      <rect x="9" y="62" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+      <rect x="31" y="62" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+    </svg>`,
+    // Motorcycle — two wheels inline, narrow
+    motorcycle:`<svg viewBox="0 0 20 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="6" y="18" width="8" height="36" rx="4" fill="#D07000"/>
+      <ellipse cx="10" cy="12" rx="6" ry="10" fill="#111"/>
+      <ellipse cx="10" cy="12" rx="3" ry="5" fill="#444"/>
+      <ellipse cx="10" cy="60" rx="6" ry="10" fill="#111"/>
+      <ellipse cx="10" cy="60" rx="3" ry="5" fill="#444"/>
+      <rect x="7" y="26" width="6" height="14" rx="3" fill="#C06000"/>
+      <rect x="6" y="22" width="8" height="6" rx="2" fill="#0d1825" opacity="0.7"/>
+      <rect x="8" y="5" width="4" height="3" rx="1" fill="#fff" opacity="0.85"/>
+      <rect x="8" y="64" width="4" height="3" rx="1" fill="#f00" opacity="0.8"/>
+    </svg>`
 };
 
 const VEHICLE_LABELS = {
@@ -901,6 +1029,7 @@ async function calculateRoute() {
         document.getElementById('route-info').style.display = 'block';
 
         resetCameraToRoute();
+        if (document.getElementById('camera-mode').value === 'map') setMapCamera();
         resetDrive();
 
     } catch(err) {
@@ -989,11 +1118,93 @@ function resetCameraToRoute() {
     if (!routePoints.length) return;
     const c = new THREE.Vector3(); routePoints.forEach(p => c.add(p)); c.divideScalar(routePoints.length);
     const span = routePoints[0].distanceTo(routePoints[routePoints.length-1]);
-    camera.position.set(c.x - span*0.28, Math.max(60, span*0.26), c.z + span*0.38);
-    controls.target.copy(c); controls.update();
+
+    const mode = document.getElementById('camera-mode').value;
+    if (mode === 'map') {
+        // True top-down: camera directly above route center, looking straight down
+        const h = Math.max(80, span * 0.55);
+        camera.position.set(c.x, h, c.z);
+        camera.up.set(0, 0, -1); // north = up on screen
+        camera.lookAt(c.x, 0, c.z);
+        controls.target.set(c.x, 0, c.z);
+        controls.update();
+        // Lock the controls so user can't accidentally rotate out of top-down
+        controls.maxPolarAngle = 0.01;
+        controls.minPolarAngle = 0;
+    } else {
+        camera.up.set(0, 1, 0);
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
+        controls.minPolarAngle = 0;
+        camera.position.set(c.x - span*0.28, Math.max(60, span*0.26), c.z + span*0.38);
+        controls.target.copy(c); controls.update();
+    }
 }
 
-// ─── ANIMATION ────────────────────────────────────────────────────────────────
+// Locked map height — set when route loads, stays fixed during drive
+let mapCameraHeight = 200;
+let mapCameraCenter = new THREE.Vector3();
+
+function setMapCamera() {
+    if (!routePoints.length) return;
+    const c = new THREE.Vector3(); routePoints.forEach(p => c.add(p)); c.divideScalar(routePoints.length);
+    const span = routePoints[0].distanceTo(routePoints[routePoints.length-1]);
+    mapCameraHeight = Math.max(80, span * 0.55);
+    mapCameraCenter.copy(c);
+    camera.position.set(c.x, mapCameraHeight, c.z);
+    camera.up.set(0, 0, -1);
+    camera.lookAt(c.x, 0, c.z);
+    controls.target.set(c.x, 0, c.z);
+    controls.maxPolarAngle = 0.01;
+    controls.minPolarAngle = 0;
+    controls.update();
+}
+
+function updateCamera() {
+    const mode = document.getElementById('camera-mode').value;
+    const speed = parseFloat(document.getElementById('speed-control').value);
+    const vp = vehicle.position.clone();
+    const vd = new THREE.Vector3(); vehicle.getWorldDirection(vd);
+    let target, look = vp.clone(), sm = 0.06;
+
+    if (mode === 'map') {
+        // Map stays completely stationary — only the vehicle icon moves
+        // Camera is already locked; just ensure it stays put
+        camera.position.set(mapCameraCenter.x, mapCameraHeight, mapCameraCenter.z);
+        camera.up.set(0, 0, -1);
+        camera.lookAt(mapCameraCenter.x, 0, mapCameraCenter.z);
+        controls.target.set(mapCameraCenter.x, 0, mapCameraCenter.z);
+        return;
+    }
+
+    // Unlock polar for non-map modes
+    controls.maxPolarAngle = Math.PI / 2 - 0.02;
+    camera.up.set(0, 1, 0);
+
+    switch(mode) {
+        case 'chase':
+            target = vp.clone().sub(vd.clone().multiplyScalar(32+speed*4)).add(new THREE.Vector3(0,20+speed*2,0));
+            look = vp.clone().add(vd.clone().multiplyScalar(45)); break;
+        case 'cinematic':
+            const a = time * 0.24, r = 42+speed*5;
+            target = vp.clone().add(new THREE.Vector3(Math.sin(a)*r, 26, Math.cos(a)*r)); break;
+        case 'overhead':
+            target = vp.clone().add(new THREE.Vector3(0,85+speed*8,0)); sm=0.04; break;
+        case 'side':
+            const perp = new THREE.Vector3(-vd.z,0,vd.x).normalize().multiplyScalar(30+speed*4);
+            target = vp.clone().add(perp).add(new THREE.Vector3(0,16,0));
+            look = vp.clone().add(vd.clone().multiplyScalar(28)); break;
+        case 'dashboard':
+            target = vp.clone().add(vd.clone().multiplyScalar(1.2)).add(new THREE.Vector3(0,2.8,0));
+            look = vp.clone().add(vd.clone().multiplyScalar(200)); sm=0.16; break;
+        case 'hood':
+            target = vp.clone().add(vd.clone().multiplyScalar(3.5)).add(new THREE.Vector3(0,1.8,0));
+            look = vp.clone().add(vd.clone().multiplyScalar(120)); sm=0.14; break;
+    }
+    if (target) {
+        camera.position.lerp(target, sm);
+        controls.target.lerp(look, sm*1.6);
+    }
+}
 function animate() {
     requestAnimationFrame(animate);
     time += 0.016;
@@ -1013,13 +1224,14 @@ function animate() {
         vehicle.position.set(pt.x, 0, pt.z);
         vehicle.lookAt(new THREE.Vector3(pt.x + tg.x, 0, pt.z + tg.z));
 
-        // Banking on turns
+        // Banking on turns — suppress in map mode (flat icon reads cleaner)
+        const cMode = document.getElementById('camera-mode').value;
         const nt = routeCurve.getTangent(Math.min(driveProgress + 0.008, 1));
         const turn = tg.angleTo(nt) * (nt.x > tg.x ? 1 : -1);
-        vehicle.rotation.z = -turn * 2.2;
+        vehicle.rotation.z = cMode === 'map' ? 0 : -turn * 2.2;
 
-        // Suspension — body group only, wheels stay on ground
-        if (vehicleBodyGroup) {
+        // Suspension — body group only, skip in map mode
+        if (vehicleBodyGroup && cMode !== 'map') {
             const bf = time * 11 * speed, amp = 0.055 * speed;
             vehicleBodyGroup.position.y = Math.sin(bf)*amp + Math.sin(bf*2.2)*amp*0.28;
             vehicleBodyGroup.rotation.x = Math.sin(bf*0.6)*0.012*speed;
@@ -1189,6 +1401,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 document.getElementById('speed-control').addEventListener('input', e => {
     document.getElementById('speed-value').textContent = parseFloat(e.target.value).toFixed(1) + '×';
+});
+
+document.getElementById('camera-mode').addEventListener('change', () => {
+    if (!routePoints.length) return;
+    const mode = document.getElementById('camera-mode').value;
+    if (mode === 'map') {
+        setMapCamera();
+    } else {
+        camera.up.set(0, 1, 0);
+        controls.maxPolarAngle = Math.PI / 2 - 0.02;
+        controls.minPolarAngle = 0;
+        resetCameraToRoute();
+    }
 });
 
 function onWindowResize() {
