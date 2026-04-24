@@ -585,7 +585,14 @@ function loadMapTiles(bounds, zoom) {
 }
 
 function updateMapForRoute(start, end) {
-    // kept for compatibility — no-op, bounds handled in calculateRoute
+    const pad = 0.3;
+    const bounds = {
+        minLat: Math.min(start.lat, end.lat) - pad, maxLat: Math.max(start.lat, end.lat) + pad,
+        minLng: Math.min(start.lng, end.lng) - pad, maxLng: Math.max(start.lng, end.lng) + pad
+    };
+    const span = Math.max(bounds.maxLat - bounds.minLat, bounds.maxLng - bounds.minLng);
+    const zoom = span > 3 ? 8 : span > 1.5 ? 9 : span > 0.6 ? 10 : 11;
+    loadMapTiles(bounds, zoom);
 }
 
 // ─── VEHICLE BUILDER HELPERS ─────────────────────────────────────────────────
@@ -1111,7 +1118,8 @@ function createStopMarker(pos, color, label, name) {
 function positionVehicleAtStart() {
     if (!vehicle || routePoints.length < 2) return;
     vehicle.position.copy(routePoints[0]); vehicle.position.y = 0;
-    vehicle.lookAt(new THREE.Vector3(routePoints[1].x, 0, routePoints[1].z));
+    const dir = new THREE.Vector3(routePoints[1].x - routePoints[0].x, 0, routePoints[1].z - routePoints[0].z).normalize();
+    vehicle.rotation.set(0, Math.atan2(dir.x, dir.z), 0);
 }
 
 function resetCameraToRoute() {
@@ -1222,7 +1230,9 @@ function animate() {
 
         // Vehicle sits on ground — y always 0
         vehicle.position.set(pt.x, 0, pt.z);
-        vehicle.lookAt(new THREE.Vector3(pt.x + tg.x, 0, pt.z + tg.z));
+        // Align vehicle along tangent — atan2 avoids lookAt flip
+        const flatTg = new THREE.Vector3(tg.x, 0, tg.z).normalize();
+        vehicle.rotation.set(0, Math.atan2(flatTg.x, flatTg.z), 0);
 
         // Banking on turns — suppress in map mode (flat icon reads cleaner)
         const cMode = document.getElementById('camera-mode').value;
@@ -1256,39 +1266,6 @@ function animate() {
     updateDust();
     controls.update();
     renderer.render(scene, camera);
-}
-
-function updateCamera() {
-    const mode = document.getElementById('camera-mode').value;
-    const speed = parseFloat(document.getElementById('speed-control').value);
-    const vp = vehicle.position.clone();
-    const vd = new THREE.Vector3(); vehicle.getWorldDirection(vd);
-    let target, look = vp.clone(), sm = 0.06;
-
-    switch(mode) {
-        case 'chase':
-            target = vp.clone().sub(vd.clone().multiplyScalar(32+speed*4)).add(new THREE.Vector3(0,20+speed*2,0));
-            look = vp.clone().add(vd.clone().multiplyScalar(45)); break;
-        case 'cinematic':
-            const a = time * 0.24, r = 42+speed*5;
-            target = vp.clone().add(new THREE.Vector3(Math.sin(a)*r, 26, Math.cos(a)*r)); break;
-        case 'overhead':
-            target = vp.clone().add(new THREE.Vector3(0,85+speed*8,0)); sm=0.04; break;
-        case 'side':
-            const perp = new THREE.Vector3(-vd.z,0,vd.x).normalize().multiplyScalar(30+speed*4);
-            target = vp.clone().add(perp).add(new THREE.Vector3(0,16,0));
-            look = vp.clone().add(vd.clone().multiplyScalar(28)); break;
-        case 'dashboard':
-            target = vp.clone().add(vd.clone().multiplyScalar(1.2)).add(new THREE.Vector3(0,2.8,0));
-            look = vp.clone().add(vd.clone().multiplyScalar(200)); sm=0.16; break;
-        case 'hood':
-            target = vp.clone().add(vd.clone().multiplyScalar(3.5)).add(new THREE.Vector3(0,1.8,0));
-            look = vp.clone().add(vd.clone().multiplyScalar(120)); sm=0.14; break;
-    }
-    if (target) {
-        camera.position.lerp(target, sm);
-        controls.target.lerp(look, sm*1.6);
-    }
 }
 
 // ─── DUST ────────────────────────────────────────────────────────────────────
