@@ -74,18 +74,79 @@
         .btn-secondary { background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.1); }
         button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .preset-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
-        .preset-btn {
-            background: rgba(0,230,118,0.07); border: 1px solid rgba(0,230,118,0.18) !important;
-            font-size: 0.74rem; padding: 9px 5px; margin: 0; color: #aaa; border-radius: 8px; font-weight: 600;
-        }
-        .preset-btn:hover { background: rgba(0,230,118,0.14) !important; color: white; }
+        /* ── Multi-stop route builder ── */
+        .stop-list { display: flex; flex-direction: column; gap: 0; position: relative; }
 
-        .route-info {
+        .stop-item {
+            display: flex; align-items: center; gap: 8px; position: relative;
+        }
+        .stop-item + .stop-item { margin-top: 6px; }
+
+        /* Vertical connector line between stops */
+        .stop-connector {
+            position: absolute; left: 11px; top: 100%; width: 2px; height: 6px;
+            background: rgba(255,255,255,0.12); z-index: 0; margin-top: 0;
+        }
+
+        .stop-dot {
+            width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.6rem; font-weight: 800; z-index: 1; position: relative;
+        }
+        .stop-dot.start  { background: #00e676; color: #002a14; }
+        .stop-dot.end    { background: #ff1744; color: white; }
+        .stop-dot.middle { background: rgba(255,255,255,0.15); color: #aaa; border: 1.5px solid rgba(255,255,255,0.2); font-size: 0.55rem; }
+
+        .stop-input-wrap { flex: 1; position: relative; }
+        .stop-input-wrap input {
+            width: 100%; padding: 8px 30px 8px 10px;
+            border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+            background: rgba(255,255,255,0.04); color: white; font-size: 0.84rem;
+            outline: none; transition: border-color 0.2s;
+        }
+        .stop-input-wrap input:focus { border-color: rgba(0,230,118,0.35); }
+        .stop-input-wrap input::placeholder { color: #444; }
+
+        .stop-drag { color: #333; font-size: 1rem; cursor: grab; flex-shrink: 0; padding: 2px; }
+        .stop-drag:active { cursor: grabbing; }
+
+        .stop-remove {
+            position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+            background: none; border: none; color: #444; cursor: pointer; font-size: 0.9rem;
+            width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+            border-radius: 4px; padding: 0; transition: color 0.15s;
+        }
+        .stop-remove:hover { color: #ff4444; }
+
+        .add-stop-btn {
+            background: none; border: 1px dashed rgba(255,255,255,0.12);
+            color: #555; font-size: 0.78rem; padding: 8px; margin: 6px 0 0 30px;
+            border-radius: 8px; cursor: pointer; text-align: left; font-weight: 600;
+            transition: all 0.15s; width: calc(100% - 30px);
+        }
+        .add-stop-btn:hover { border-color: rgba(0,230,118,0.3); color: #00e676; background: rgba(0,230,118,0.04); }
+
+        .stop-autocomplete {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+            background: rgba(14,14,24,0.98); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px; margin-top: 3px; overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+        .stop-autocomplete div {
+            padding: 9px 12px; font-size: 0.82rem; color: #ccc; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .stop-autocomplete div:hover { background: rgba(255,255,255,0.07); color: white; }
+        .stop-autocomplete div .ac-icon { font-size: 0.7rem; color: #555; flex-shrink: 0; }
+
+        .route-summary {
             background: rgba(41,121,255,0.07); border: 1px solid rgba(41,121,255,0.15);
             border-radius: 8px; padding: 10px; margin: 8px 0; font-size: 0.82rem;
         }
-        .info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+        .route-summary-stops { font-size: 0.72rem; color: #666; margin-bottom: 6px; }
+        .route-summary-stops span { color: #aaa; }
+
+        .info-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: 0.82rem; }
         .info-value { color: #2979ff; font-weight: 700; }
 
         .vehicle-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
@@ -151,33 +212,21 @@
         <div class="subtitle">3D animated road trip videos</div>
 
         <div class="section">
-            <div class="section-title">Quick Routes</div>
-            <div class="preset-grid">
-                <button class="preset-btn" onclick="loadPreset('toronto-hamilton')">Toronto → Hamilton</button>
-                <button class="preset-btn" onclick="loadPreset('toronto-niagara')">Toronto → Niagara</button>
-                <button class="preset-btn" onclick="loadPreset('toronto-london')">Toronto → London</button>
-                <button class="preset-btn" onclick="loadPreset('toronto-kingston')">Toronto → Kingston</button>
-                <button class="preset-btn" onclick="loadPreset('mississauga-oakville')">Mississauga → Oakville</button>
-                <button class="preset-btn" onclick="loadPreset('brampton-guelph')">Brampton → Guelph</button>
-            </div>
-        </div>
+            <div class="section-title">Trip Planner</div>
 
-        <div class="section">
-            <div class="section-title">Custom Route</div>
-            <div class="control-group">
-                <label>From</label>
-                <input type="text" id="start-input" placeholder="e.g., Toronto, ON" value="Toronto, ON">
+            <div class="stop-list" id="stop-list">
+                <!-- Stops rendered by JS -->
             </div>
-            <div class="control-group">
-                <label>To</label>
-                <input type="text" id="end-input" placeholder="e.g., Hamilton, ON" value="Hamilton, ON">
-            </div>
-            <div class="loading" id="loading"><div class="spinner"></div><span>Finding route...</span></div>
-            <button class="btn-primary" id="route-btn" onclick="calculateRoute()">Calculate Route</button>
-            <div class="route-info" id="route-info" style="display:none;">
-                <div class="info-row"><span>Distance</span><span class="info-value" id="distance">-</span></div>
-                <div class="info-row"><span>Est. Time</span><span class="info-value" id="duration">-</span></div>
-                <div class="info-row"><span>Via</span><span class="info-value" id="highway">-</span></div>
+
+            <button class="add-stop-btn" onclick="addStop()">+ Add stop</button>
+
+            <div class="loading" id="loading" style="margin-top:8px"><div class="spinner"></div><span>Calculating route...</span></div>
+            <button class="btn-primary" id="route-btn" onclick="calculateRoute()" style="margin-top:8px">Get Directions</button>
+
+            <div class="route-summary" id="route-info" style="display:none;">
+                <div class="route-summary-stops" id="stop-summary"></div>
+                <div class="info-row"><span>Total Distance</span><span class="info-value" id="distance">-</span></div>
+                <div class="info-row"><span>Est. Drive Time</span><span class="info-value" id="duration">-</span></div>
             </div>
         </div>
 
@@ -335,8 +384,9 @@ function init() {
     scene.add(ground);
 
     buildVehicleGrid();
+    initStops();
     createVehicle('suv');
-    loadPreset('toronto-hamilton');
+    calculateRoute();
     animate();
     window.addEventListener('resize', onWindowResize);
 }
@@ -407,14 +457,7 @@ function loadMapTiles(bounds, zoom) {
 }
 
 function updateMapForRoute(start, end) {
-    const pad = 0.3;
-    const bounds = {
-        minLat: Math.min(start.lat, end.lat) - pad, maxLat: Math.max(start.lat, end.lat) + pad,
-        minLng: Math.min(start.lng, end.lng) - pad, maxLng: Math.max(start.lng, end.lng) + pad
-    };
-    const span = Math.max(bounds.maxLat - bounds.minLat, bounds.maxLng - bounds.minLng);
-    const zoom = span > 3 ? 8 : span > 1.5 ? 9 : span > 0.6 ? 10 : 11;
-    loadMapTiles(bounds, zoom);
+    // kept for compatibility — no-op, bounds handled in calculateRoute
 }
 
 // ─── VEHICLE BUILDER HELPERS ─────────────────────────────────────────────────
@@ -638,19 +681,135 @@ function addLights(sp) {
     vehicle.add(ptl);
 }
 
-// ─── ROUTING ─────────────────────────────────────────────────────────────────
+// ─── MULTI-STOP PLANNER ───────────────────────────────────────────────────────
 const CITIES = {
     toronto:{lat:43.6532,lng:-79.3832,name:'Toronto'}, hamilton:{lat:43.2557,lng:-79.8711,name:'Hamilton'},
     niagara:{lat:43.0896,lng:-79.0849,name:'Niagara Falls'}, london:{lat:42.9837,lng:-81.2497,name:'London'},
     kingston:{lat:44.2312,lng:-76.4860,name:'Kingston'}, mississauga:{lat:43.5890,lng:-79.6441,name:'Mississauga'},
     oakville:{lat:43.4675,lng:-79.6877,name:'Oakville'}, brampton:{lat:43.7315,lng:-79.7624,name:'Brampton'},
     guelph:{lat:43.5448,lng:-80.2482,name:'Guelph'}, oshawa:{lat:43.8971,lng:-78.8658,name:'Oshawa'},
-    barrie:{lat:44.3894,lng:-79.6903,name:'Barrie'}, windsor:{lat:42.3149,lng:-83.0364,name:'Windsor'}
+    barrie:{lat:44.3894,lng:-79.6903,name:'Barrie'}, windsor:{lat:42.3149,lng:-83.0364,name:'Windsor'},
+    kitchener:{lat:43.4516,lng:-80.4925,name:'Kitchener'}, waterloo:{lat:43.4643,lng:-80.5204,name:'Waterloo'},
+    cambridge:{lat:43.3616,lng:-80.3144,name:'Cambridge'}, 'st-catharines':{lat:43.1594,lng:-79.2469,name:'St. Catharines'},
+    peterborough:{lat:44.3091,lng:-78.3197,name:'Peterborough'}, aurora:{lat:43.9983,lng:-79.4667,name:'Aurora'},
+    richmond:{lat:43.8714,lng:-79.4394,name:'Richmond Hill'}, markham:{lat:43.8561,lng:-79.3370,name:'Markham'},
+    vaughan:{lat:43.8361,lng:-79.4983,name:'Vaughan'}, ajax:{lat:43.8509,lng:-79.0205,name:'Ajax'}
 };
 
+// Stop state: array of { id, value, resolved: {lat,lng,name} | null }
+let stops = [];
+let stopIdCounter = 0;
+let activeAcInput = null;
+let sceneMarkers = []; // track all 3D markers for cleanup
+
+function initStops() {
+    stops = [
+        { id: stopIdCounter++, value: 'Toronto', resolved: CITIES.toronto },
+        { id: stopIdCounter++, value: 'Hamilton', resolved: CITIES.hamilton }
+    ];
+    renderStops();
+}
+
+function renderStops() {
+    const list = document.getElementById('stop-list');
+    list.innerHTML = '';
+    stops.forEach((stop, i) => {
+        const isStart = i === 0;
+        const isEnd = i === stops.length - 1;
+        const dotClass = isStart ? 'start' : isEnd ? 'end' : 'middle';
+        const dotLabel = isStart ? 'A' : isEnd ? String.fromCharCode(64 + stops.length) : String.fromCharCode(65 + i);
+        const canRemove = stops.length > 2 && !isStart && !isEnd;
+        const canRemoveAny = stops.length > 2;
+
+        const item = document.createElement('div');
+        item.className = 'stop-item';
+        item.dataset.id = stop.id;
+        item.innerHTML = `
+            <div class="stop-dot ${dotClass}">${dotLabel}</div>
+            <div class="stop-input-wrap" style="position:relative">
+                <input type="text" value="${stop.value}" placeholder="${isStart ? 'Starting point' : isEnd ? 'Destination' : 'Add stop'}"
+                    data-idx="${i}" oninput="onStopInput(this, ${i})" onfocus="onStopFocus(this, ${i})" onblur="onStopBlur(${i})">
+                ${canRemoveAny && !isStart && !isEnd ? `<button class="stop-remove" onmousedown="removeStop(${i})" title="Remove stop">×</button>` : ''}
+                <div class="stop-autocomplete" id="ac-${stop.id}" style="display:none"></div>
+            </div>
+            <span class="stop-drag" title="Drag to reorder" style="display:none">⠿</span>
+        `;
+        list.appendChild(item);
+
+        // Connector line between stops
+        if (i < stops.length - 1) {
+            const conn = document.createElement('div');
+            conn.style.cssText = 'margin: 0 0 0 10px; width: 2px; height: 7px; background: rgba(255,255,255,0.1);';
+            list.appendChild(conn);
+        }
+    });
+}
+
+function onStopInput(input, idx) {
+    stops[idx].value = input.value;
+    stops[idx].resolved = null;
+    showAutocomplete(input, idx);
+}
+
+function onStopFocus(input, idx) {
+    if (input.value.trim()) showAutocomplete(input, idx);
+}
+
+function onStopBlur(idx) {
+    // Delay so mousedown on AC item fires first
+    setTimeout(() => {
+        const ac = document.getElementById(`ac-${stops[idx].id}`);
+        if (ac) ac.style.display = 'none';
+    }, 180);
+}
+
+function showAutocomplete(input, idx) {
+    const ac = document.getElementById(`ac-${stops[idx].id}`);
+    if (!ac) return;
+    const q = input.value.trim().toLowerCase();
+    if (!q) { ac.style.display = 'none'; return; }
+
+    const matches = Object.entries(CITIES)
+        .filter(([k, v]) => v.name.toLowerCase().includes(q) || k.includes(q))
+        .slice(0, 6);
+
+    if (!matches.length) { ac.style.display = 'none'; return; }
+
+    ac.innerHTML = matches.map(([k, v]) =>
+        `<div onmousedown="selectAC(${idx}, '${k}')"><span class="ac-icon">📍</span>${v.name}</div>`
+    ).join('');
+    ac.style.display = 'block';
+}
+
+function selectAC(idx, cityKey) {
+    const city = CITIES[cityKey];
+    stops[idx].value = city.name;
+    stops[idx].resolved = city;
+    renderStops();
+}
+
+function addStop() {
+    // Insert a new blank stop before the last (destination) stop
+    const newStop = { id: stopIdCounter++, value: '', resolved: null };
+    stops.splice(stops.length - 1, 0, newStop);
+    renderStops();
+    // Focus the new input
+    setTimeout(() => {
+        const inputs = document.querySelectorAll('#stop-list input');
+        if (inputs[stops.length - 2]) inputs[stops.length - 2].focus();
+    }, 50);
+}
+
+function removeStop(idx) {
+    if (stops.length <= 2) return;
+    stops.splice(idx, 1);
+    renderStops();
+}
+
+// ─── GEOCODING ────────────────────────────────────────────────────────────────
 function parseLocation(input) {
     const m = input.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
-    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]), name: input };
     const key = input.toLowerCase().replace(/\s+/g,'-').replace(/,.*$/,'');
     return CITIES[key] || null;
 }
@@ -659,103 +818,165 @@ async function geocode(addr) {
     const q = addr.toLowerCase().includes('ontario') ? addr : addr + ', Ontario, Canada';
     try {
         const d = await (await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1`)).json();
-        if (d && d.length) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+        if (d && d.length) return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon), name: d[0].display_name.split(',')[0] };
     } catch(e) {}
     return null;
 }
 
+async function resolveStop(stop) {
+    if (stop.resolved) return stop.resolved;
+    const loc = parseLocation(stop.value) || await geocode(stop.value);
+    if (loc) { stop.resolved = loc; }
+    return loc;
+}
+
+// ─── MULTI-STOP ROUTING ───────────────────────────────────────────────────────
 async function calculateRoute() {
-    const sv = document.getElementById('start-input').value;
-    const ev = document.getElementById('end-input').value;
+    // Sync values from inputs first
+    document.querySelectorAll('#stop-list input').forEach((inp, i) => {
+        if (stops[i]) stops[i].value = inp.value;
+    });
+
     document.getElementById('loading').classList.add('active');
     document.getElementById('route-btn').disabled = true;
+    document.getElementById('route-info').style.display = 'none';
+
     try {
-        const s = parseLocation(sv) || await geocode(sv);
-        const e = parseLocation(ev) || await geocode(ev);
-        if (!s || !e) throw new Error();
-        const d = await (await fetch(`https://router.project-osrm.org/route/v1/driving/${s.lng},${s.lat};${e.lng},${e.lat}?overview=full&geometries=geojson`)).json();
-        if (d.code === 'Ok') applyRoute(d.routes[0], s, e);
-        else createDirectRoute(s, e);
+        // Resolve all stops to lat/lng
+        const resolved = await Promise.all(stops.map(resolveStop));
+        if (resolved.some(r => !r)) throw new Error('Could not find one or more locations');
+
+        // Calculate bounds across all stops
+        const allLats = resolved.map(r => r.lat), allLngs = resolved.map(r => r.lng);
+        const bounds = {
+            minLat: Math.min(...allLats) - 0.25, maxLat: Math.max(...allLats) + 0.25,
+            minLng: Math.min(...allLngs) - 0.25, maxLng: Math.max(...allLngs) + 0.25
+        };
+        const span = Math.max(bounds.maxLat - bounds.minLat, bounds.maxLng - bounds.minLng);
+        const zoom = span > 3 ? 8 : span > 1.5 ? 9 : span > 0.6 ? 10 : 11;
+        loadMapTiles(bounds, zoom);
+
+        // Chain OSRM segments: A→B, B→C, C→D etc.
+        await sleep(80); // let map center update
+        let allPoints = [];
+        let totalDist = 0, totalDur = 0;
+
+        for (let i = 0; i < resolved.length - 1; i++) {
+            const s = resolved[i], e = resolved[i + 1];
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${s.lng},${s.lat};${e.lng},${e.lat}?overview=full&geometries=geojson`;
+                const d = await (await fetch(url)).json();
+                if (d.code === 'Ok') {
+                    const pts = d.routes[0].geometry.coordinates.map(c => {
+                        const p = latLngToWorld(c[1], c[0]); p.y = 0; return p;
+                    });
+                    // Avoid duplicate junction point between segments
+                    if (allPoints.length > 0) pts.shift();
+                    allPoints = allPoints.concat(pts);
+                    totalDist += d.routes[0].distance;
+                    totalDur  += d.routes[0].duration;
+                } else {
+                    // Fallback: straight line for this segment
+                    allPoints = allPoints.concat(straightSegment(s, e));
+                    totalDist += haversine(s, e) * 1000;
+                    totalDur  += haversine(s, e) / 80 * 3600;
+                }
+            } catch(err) {
+                allPoints = allPoints.concat(straightSegment(s, e));
+            }
+        }
+
+        routePoints = allPoints;
+        routeCurve = new THREE.CatmullRomCurve3(routePoints, false, 'catmullrom', 0.4);
+
+        // Draw line + markers
+        drawMultiStopRoute(resolved);
+
+        // Summary
+        document.getElementById('distance').textContent = (totalDist/1000).toFixed(1) + ' km';
+        document.getElementById('duration').textContent = formatDuration(totalDur);
+        const names = resolved.map(r => r.name || '?');
+        document.getElementById('stop-summary').innerHTML =
+            names.map((n,i) => `<span style="color:${i===0?'#00e676':i===names.length-1?'#ff4466':'#aaa'}">${n}</span>`).join(' <span style="color:#333">→</span> ');
+        document.getElementById('route-info').style.display = 'block';
+
+        resetCameraToRoute();
+        resetDrive();
+
     } catch(err) {
-        createDirectRoute(parseLocation(sv)||CITIES.toronto, parseLocation(ev)||CITIES.hamilton);
+        console.error('Route error:', err);
+        alert('Could not calculate route. Please check your stop names.');
     } finally {
         document.getElementById('loading').classList.remove('active');
         document.getElementById('route-btn').disabled = false;
     }
 }
 
-function applyRoute(rd, start, end) {
-    updateMapForRoute(start, end);
-    setTimeout(() => {
-        routePoints = rd.geometry.coordinates.map(c => { const p = latLngToWorld(c[1],c[0]); p.y=0; return p; });
-        finishRoute(rd.distance, rd.duration, start, end);
-    }, 60);
+function straightSegment(s, e) {
+    const sp = latLngToWorld(s.lat, s.lng); sp.y = 0;
+    const ep = latLngToWorld(e.lat, e.lng); ep.y = 0;
+    const pts = [];
+    for (let i = 0; i <= 30; i++) {
+        const t = i / 30;
+        pts.push(new THREE.Vector3(sp.x + (ep.x-sp.x)*t, 0, sp.z + (ep.z-sp.z)*t));
+    }
+    return pts;
 }
 
-function createDirectRoute(start, end) {
-    updateMapForRoute(start, end);
-    setTimeout(() => {
-        const s = latLngToWorld(start.lat, start.lng); s.y=0;
-        const e = latLngToWorld(end.lat, end.lng); e.y=0;
-        const mid = new THREE.Vector3((s.x+e.x)/2+(Math.random()-.5)*18, 0, (s.z+e.z)/2);
-        routePoints = [];
-        for (let i = 0; i <= 60; i++) {
-            const t = i/60;
-            routePoints.push(new THREE.Vector3(
-                (1-t)*(1-t)*s.x + 2*(1-t)*t*mid.x + t*t*e.x, 0,
-                (1-t)*(1-t)*s.z + 2*(1-t)*t*mid.z + t*t*e.z
-            ));
-        }
-        finishRoute(s.distanceTo(e)/MAP_SCALE*111320*1000, s.distanceTo(e)/MAP_SCALE*111320/80*3600, start, end);
-    }, 60);
+function haversine(a, b) {
+    const R = 6371, dLat = (b.lat-a.lat)*Math.PI/180, dLng = (b.lng-a.lng)*Math.PI/180;
+    const h = Math.sin(dLat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+    return R * 2 * Math.asin(Math.sqrt(h));
 }
 
-function finishRoute(distM, durS, start, end) {
-    routeCurve = new THREE.CatmullRomCurve3(routePoints, false, 'catmullrom', 0.4);
-    createRouteLine();
-    document.getElementById('distance').textContent = (distM/1000).toFixed(1) + ' km';
-    document.getElementById('duration').textContent = Math.round(durS/60) + ' min';
-    document.getElementById('highway').textContent = guessHighway(start, end);
-    document.getElementById('route-info').style.display = 'block';
-    resetCameraToRoute();
-    resetDrive();
+function formatDuration(seconds) {
+    const h = Math.floor(seconds / 3600), m = Math.round((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${m}min` : `${m} min`;
 }
 
-function guessHighway(s, e) {
-    const n = (s.name||'') + (e.name||'');
-    if (n.includes('Hamilton')) return 'QEW / Gardiner';
-    if (n.includes('Niagara')) return 'QEW';
-    if (n.includes('London')) return 'Hwy 401 / 403';
-    if (n.includes('Kingston')) return 'Hwy 401 East';
-    return 'Provincial Highway';
-}
-
-function createRouteLine() {
+function drawMultiStopRoute(resolved) {
+    // Clear old route line and markers
     if (routeLine) scene.remove(routeLine);
+    sceneMarkers.forEach(obj => scene.remove(obj));
+    sceneMarkers = [];
+
     if (routePoints.length < 2) return;
-    const geo = new THREE.TubeGeometry(routeCurve, Math.min(routePoints.length*2,500), 0.55, 8, false);
+    const geo = new THREE.TubeGeometry(routeCurve, Math.min(routePoints.length*2, 600), 0.55, 8, false);
     const matR = new THREE.MeshStandardMaterial({ color:0x0099ff, emissive:0x0055cc, emissiveIntensity:0.7, roughness:0.4 });
     routeLine = new THREE.Mesh(geo, matR);
     routeLine.position.y = 0.35;
     scene.add(routeLine);
-    createMarker(routePoints[0], 0x00e676, 'START');
-    createMarker(routePoints[routePoints.length-1], 0xff1744, 'END');
+
+    // Place a marker at each stop
+    resolved.forEach((stop, i) => {
+        const isStart = i === 0, isEnd = i === resolved.length - 1;
+        const color = isStart ? 0x00e676 : isEnd ? 0xff1744 : 0xffaa00;
+        const label = isStart ? 'A' : isEnd ? String.fromCharCode(64 + resolved.length) : String.fromCharCode(65 + i);
+        const worldPos = latLngToWorld(stop.lat, stop.lng);
+        createStopMarker(worldPos, color, label, stop.name);
+    });
 }
 
-function createMarker(pos, color, label) {
+function createStopMarker(pos, color, label, name) {
     const g = new THREE.Group();
-    g.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,8,8), new THREE.MeshStandardMaterial({color})), { position: new THREE.Vector3(0,4,0) }));
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.28,8,8), new THREE.MeshStandardMaterial({color}));
+    pole.position.y = 4; g.add(pole);
     const sph = new THREE.Mesh(new THREE.SphereGeometry(2,14,14), new THREE.MeshStandardMaterial({color, emissive:color, emissiveIntensity:0.5}));
     sph.position.y = 9; g.add(sph);
-    g.position.set(pos.x, 0, pos.z); scene.add(g);
-    const cv = document.createElement('canvas'); cv.width=128; cv.height=44;
+    g.position.set(pos.x, 0, pos.z);
+    scene.add(g); sceneMarkers.push(g);
+
+    // Label sprite
+    const cv = document.createElement('canvas'); cv.width = 160; cv.height = 48;
     const ctx = cv.getContext('2d');
-    ctx.fillStyle = color === 0x00e676 ? 'rgba(0,200,100,0.88)' : 'rgba(220,20,50,0.88)';
-    ctx.roundRect(2,2,124,40,8); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.font='bold 20px system-ui'; ctx.textAlign='center';
-    ctx.fillText(label, 64, 28);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv)}));
-    sprite.position.set(pos.x, 15, pos.z); sprite.scale.set(14,4.8,1); scene.add(sprite);
+    const r = color === 0x00e676 ? '0,220,100' : color === 0xff1744 ? '220,20,50' : '220,150,0';
+    ctx.fillStyle = `rgba(${r},0.9)`;
+    ctx.roundRect(2,2,156,44,8); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(`${label}  ${(name||'').substring(0,12)}`, 80, 30);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(cv)}));
+    sprite.position.set(pos.x, 15, pos.z); sprite.scale.set(18, 5.4, 1);
+    scene.add(sprite); sceneMarkers.push(sprite);
 }
 
 function positionVehicleAtStart() {
@@ -917,20 +1138,7 @@ function resetDrive() {
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !isDrawerOpen) toggleDrawer(); });
 
-function loadPreset(key) {
-    const map = {
-        'toronto-hamilton':{start:CITIES.toronto,end:CITIES.hamilton},
-        'toronto-niagara':{start:CITIES.toronto,end:CITIES.niagara},
-        'toronto-london':{start:CITIES.toronto,end:CITIES.london},
-        'toronto-kingston':{start:CITIES.toronto,end:CITIES.kingston},
-        'mississauga-oakville':{start:CITIES.mississauga,end:CITIES.oakville},
-        'brampton-guelph':{start:CITIES.brampton,end:CITIES.guelph}
-    };
-    const r = map[key]; if (!r) return;
-    document.getElementById('start-input').value = r.start.name;
-    document.getElementById('end-input').value = r.end.name;
-    calculateRoute();
-}
+// loadPreset removed — replaced by multi-stop planner
 
 // ─── RECORDING ────────────────────────────────────────────────────────────────
 async function toggleRecording() { isRecording ? stopRecording() : startRecording(); }
